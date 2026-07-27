@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "packauth"
+version = "0.1.0"
+description = "PackAuth API client. Every method is derived from the canonical operation registry, so the client cannot fall behind the API it covers."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "PackAuth", email = "hello@packauth.com" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["packauth", "packaging", "compliance", "labelling", "sdk"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://packauth.com"
+Documentation = "https://packauth.com/api"
+Source = "https://github.com/PackAuth/app"
+
+[tool.setuptools]
+packages = ["packauth"]
+
+[tool.setuptools.package-data]
+packauth = ["api.json"]
