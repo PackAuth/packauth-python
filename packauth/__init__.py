@@ -41,6 +41,44 @@ DEFAULT_BASE_URL = "https://api.packauth.com"
 _REGISTRY = load_registry()
 
 
+# ---------------------------------------------------------------------------
+# Plane safety
+# ---------------------------------------------------------------------------
+
+#: Which plane a key belongs to, and which host serves it. Kept in step with
+#: spec/registries/environment.json by the `environment-canonical` gate.
+_PLANES = (
+    ("production", "pa_live_", "api.packauth.com"),
+    ("sandbox", "pa_test_", "sandbox.packauth.com"),
+)
+
+
+def _refuse_plane_mismatch(token: str | None, base_url: str) -> None:
+    """Refuse a sandbox key against production, or the reverse.
+
+    The server would refuse it anyway, with a 401. But a 401 reads as "bad
+    credential" and sends somebody looking for a typo in a key that is
+    perfectly good — the mistake is which host it was pointed at. Saying so
+    costs one string comparison and saves the twenty minutes.
+
+    It matters because the base URL has a DEFAULT. An unset one does not fail;
+    it resolves to production. A developer who took a sandbox key and forgot to
+    change the host would be writing real rows while believing every write was
+    disposable.
+    """
+    if not token:
+        return
+    key_plane = next((name for name, prefix, _ in _PLANES if token.startswith(prefix)), None)
+    host = urllib.parse.urlparse(base_url).hostname or base_url
+    url_plane = next((name for name, _, h in _PLANES if host == h), None)
+    if key_plane and url_plane and key_plane != url_plane:
+        raise ValueError(
+            f"the token is a {key_plane} key and {base_url} is the {url_plane} plane. "
+            f"This would come back as an invalid credential, which reads as a typo — it is not. "
+            f"Point base_url at the {key_plane} host, or use a {url_plane} key."
+        )
+
+
 class PackAuthError(Exception):
     """Every failure, carrying what you need to act on it.
 
@@ -98,6 +136,7 @@ class PackAuth:
     ) -> None:
         self.token = token
         self.base_url = base_url.rstrip("/")
+        _refuse_plane_mismatch(self.token, self.base_url)
         self.timeout = timeout
         self._opener = opener
         self.operations = {op["operation_id"]: op for op in _REGISTRY["operations"]}
